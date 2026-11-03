@@ -97,6 +97,7 @@ def authorization_uri(req: PresentationRequest) -> str:
         "nonce": obj["nonce"],
         "state": obj["state"],
         "dcql_query": json.dumps(obj["dcql_query"], separators=(",", ":")),
+        "client_metadata": json.dumps({"client_name": obj["client_metadata"]["client_name"]}, separators=(",", ":")),
     }
     return "openid4vp://authorize?" + urlencode(params)
 

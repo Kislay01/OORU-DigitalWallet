@@ -78,11 +78,34 @@ With Docker (PostgreSQL included):
 docker compose up --build
 ```
 
+Wallet (separate terminal):
+
+```bash
+cd wallet && npm install && npm run dev
+```
+
+| App | URL | Login |
+|---|---|---|
+| Issuer portal | http://localhost:8000/admin/ | `admin` / `admin123` |
+| Verifier portal | http://localhost:8000/verifier/ | `verifier` / `verifier123` |
+| Wallet | http://localhost:3002/ | set a 6-digit PIN on first open |
+
 Tests:
 
 ```bash
 cd backend && python -m pytest -q
+cd wallet && npm test
 ```
+
+## Demo script
+
+1. **Issue**: in the issuer portal, fill the student form and create an offer. A QR appears.
+2. **Store**: in the wallet, set a PIN, tap *Scan* and scan (or paste) the offer. The issuer portal flips to *Claimed*.
+3. **Share**: in the verifier portal, pick *Entry gate* and create a request. Scan it in the wallet, review the fields, share.
+4. **Verify**: the verifier shows *Valid Campus ID* with only the shared fields and every check passed.
+5. **Selective disclosure**: create a *Library* request and switch off *Branch* in the wallet. The verifier rejects it for the missing field, and the wallet records the attempt.
+6. **Revoke**: revoke the ID in the issuer portal. The wallet card turns *Revoked*, sharing is blocked, and the verifier rejects any presentation of it.
+7. **Audit**: the wallet *Activity* tab shows signed, hash-chained receipts; the issuer and verifier portals show their own logs.
 
 ## Team
 

@@ -36,6 +36,7 @@ async def test_valid_presentation_reveals_only_chosen_fields(client):
     holder, sd, _, _ = await issued(client)
     req, v = await new_request(client)
     assert req["authorization_request_uri"].startswith("openid4vp://authorize?")
+    assert "client_name" in req["authorization_request_uri"]
     vp = holder.present(sd, GATE, req["nonce"], req["client_id"])
     r = await respond(client, req, vp)
     assert r.json()["status"] == "valid"
