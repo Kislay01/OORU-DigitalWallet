@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus ID Issuer</title>
+<script src="qrcode.js"></script>
+<style>
+  :root {
+    --bg: #f6f7fb; --surface: #ffffff; --border: #e3e6ee; --text: #172033; --muted: #5f6b80;
+    --primary: #1e3a8a; --primary-ink: #ffffff; --primary-soft: #e8edfb;
+    --ok: #157347; --ok-soft: #e3f4ea; --bad: #b42318; --bad-soft: #fdecea; --warn: #9a6700; --warn-soft: #fff4d6;
+    --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--primary); color: var(--primary-ink); }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 16px; }
+  .brand { font-weight: 650; font-size: 16px; letter-spacing: .2px; }
+  .brand small { display: block; font-weight: 400; opacity: .8; font-size: 12px; }
+  .spacer { flex: 1; }
+  nav { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
+  nav button { background: none; border: 0; color: #c9d4f2; padding: 10px 12px; border-bottom: 2px solid transparent; cursor: pointer; font: inherit; white-space: nowrap; }
+  nav button.active { color: #fff; border-bottom-color: #fff; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .grid { display: grid; gap: 16px; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .stat .n { font-size: 26px; font-weight: 650; }
+  .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .two { grid-template-columns: 1.2fr 1fr; }
+  @media (max-width: 800px) { .two { grid-template-columns: 1fr; } }
+  label { display: block; font-weight: 550; margin: 0 0 4px; font-size: 13px; }
+  input, select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff; color: var(--text); }
+  input:focus, select:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+  .field { margin-bottom: 12px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .row > * { flex: 1; min-width: 140px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text); font: inherit; font-weight: 550; cursor: pointer; }
+  .btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .btn.danger { color: var(--bad); border-color: #f3c3bd; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.sm { padding: 5px 10px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 550; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  .table-wrap { overflow-x: auto; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .b-active { background: var(--ok-soft); color: var(--ok); }
+  .b-revoked { background: var(--bad-soft); color: var(--bad); }
+  .b-expired { background: var(--warn-soft); color: var(--warn); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin: 12px 0 0; }
+  .msg.err { background: var(--bad-soft); color: var(--bad); }
+  .msg.ok { background: var(--ok-soft); color: var(--ok); }
+  .qr-box { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  #qr { padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+  .link-box { width: 100%; word-break: break-all; background: var(--bg); border: 1px dashed var(--border); padding: 8px; border-radius: 8px; max-height: 90px; overflow: auto; }
+  .login { max-width: 380px; margin: 10vh auto; }
+  .hidden { display: none !important; }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+  .pill { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+  .dot.ok { background: var(--ok); }
+</style>
+</head>
+<body>
+
+<section id="login-view" class="login card">
+  <h2>Campus ID Issuer</h2>
+  <p class="sub">Sign in with an issuer admin account.</p>
+  <form id="login-form">
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" required></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" style="width:100%;justify-content:center">Sign in</button>
+    <div id="login-msg"></div>
+  </form>
+</section>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="bar">
+      <div class="brand">Campus ID Issuer<small>OORU Digital Identity Wallet</small></div>
+      <div class="spacer"></div>
+      <span id="who" class="muted" style="color:#c9d4f2"></span>
+      <button class="btn sm" id="logout">Sign out</button>
+    </div>
+    <nav id="tabs">
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="issue">Issue</button>
+      <button data-tab="bulk">Bulk issue</button>
+      <button data-tab="registry">Credentials</button>
+      <button data-tab="activity">Activity</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <section data-view="dashboard">
+      <div class="grid stats" id="stats"></div>
+      <div class="card" style="margin-top:16px">
+        <h2>Recent activity</h2>
+        <p class="sub">Latest issuer actions. No student data is stored in this log.</p>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead><tbody id="recent"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- Issue -->
+    <section data-view="issue" class="hidden">
+      <div class="grid two">
+        <div class="card">
+          <h2>Issue a Campus ID</h2>
+          <p class="sub">Creates a one-time OpenID4VCI offer. The student scans the QR in their wallet to claim it.</p>
+          <form id="issue-form">
+            <div class="field"><label for="f-name">Full name</label><input id="f-name" name="name" required maxlength="128"></div>
+            <div class="row">
+              <div class="field"><label for="f-roll">Roll number</label><input id="f-roll" name="roll_number" required maxlength="64"></div>
+              <div class="field"><label for="f-branch">Branch</label><input id="f-branch" name="branch" required maxlength="128" placeholder="e.g. CSE (AI)"></div>
+            </div>
+            <div class="row">
+              <div class="field"><label for="f-status">Enrollment status</label>
+                <select id="f-status" name="enrollment_status"><option value="active">Active</option><option value="graduated">Graduated</option><option value="suspended">Suspended</option></select></div>
+              <div class="field"><label for="f-valid">Valid until</label><input id="f-valid" name="valid_until" type="date" required></div>
+            </div>
+            <div class="field"><label for="f-photo">Photo (optional, under 200 KB)</label><input id="f-photo" type="file" accept="image/*"></div>
+            <div class="field"><label class="pill"><input type="checkbox" id="f-replace" style="width:auto"> Replace an existing active ID for this roll number</label></div>
+            <button class="btn primary" id="issue-btn">Create offer</button>
+            <div id="issue-msg"></div>
+          </form>
+        </div>
+        <div class="card">
+          <div id="offer-empty" class="empty">The offer QR appears here after you create one.</div>
+          <div id="offer" class="qr-box hidden">
+            <h2 id="offer-title"></h2>
+            <div id="qr"></div>
+            <div class="pill"><span class="dot" id="claim-dot"></span><span id="claim-text">Waiting for the wallet to claim…</span></div>
+            <div class="link-box mono" id="offer-link"></div>
+            <div class="row" style="width:100%">
+              <button class="btn" id="copy-offer">Copy offer link</button>
+              <button class="btn" id="new-offer">Issue another</button>
+            </div>
+            <p class="muted" id="offer-exp" style="margin:0"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bulk -->
+    <section data-view="bulk" class="hidden">
+      <div class="card">
+        <h2>Bulk issue from CSV</h2>
+        <p class="sub">Columns: <span class="mono">name, roll_number, branch, enrollment_status, valid_until</span> (YYYY-MM-DD). Each row is checked on its own; failed rows don't stop the rest.</p>
+        <div class="row">
+          <div><input type="file" id="csv" accept=".csv,text/csv"></div>
+          <div style="flex:0"><label class="pill"><input type="checkbox" id="bulk-replace" style="width:auto"> Replace existing</label></div>
+          <div style="flex:0"><button class="btn" id="csv-template">Download template</button></div>
+          <div style="flex:0"><button class="btn primary" id="bulk-btn" disabled>Issue</button></div>
+        </div>
+        <div id="bulk-msg"></div>
+        <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Row</th><th>Roll number</th><th>Result</th><th>Credential</th></tr></thead><tbody id="bulk-rows"></tbody></table></div>
+        <div style="margin-top:12px"><button class="btn hidden" id="bulk-export">Export offer links (CSV)</button></div>
+      </div>
+    </section>
+
+    <!-- Registry -->
+    <section data-view="registry" class="hidden">
+      <div class="card">
+        <h2>Issued credentials</h2>
+        <p class="sub">Only credential IDs and status are kept here. Student details live in the student's wallet.</p>
+        <div class="row" style="margin-bottom:12px">
+          <div><input id="q" placeholder="Search credential ID or roll number"></div>
+          <div style="flex:0 0 160px"><select id="status-filter"><option value="">All statuses</option><option value="active">Active</option><option value="revoked">Revoked</option><option value="expired">Expired</option></select></div>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Credential ID</th><th>Roll number</th><th>Issued</th><th>Valid until</th><th>Status</th><th></th></tr></thead><tbody id="creds"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- Activity -->
+    <section data-view="activity" class="hidden">
+      <div class="card">
+        <div class="row" style="align-items:center;margin-bottom:8px">
+          <div><h2>Audit log</h2><p class="sub" style="margin:0">Every issue, delivery and revocation.</p></div>
+          <div style="flex:0"><button class="btn" id="audit-export">Export CSV</button></div>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody id="audit"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  const API = location.origin;
+  const $ = (s) => document.querySelector(s);
+  const store = {
+    get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+    del(k) { try { sessionStorage.removeItem(k); } catch {} },
+  };
+  let token = store.get("issuer_token");
+  let pollTimer = null;
+  let bulkRows = [], bulkResults = [];
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmt = (d) => d ? new Date(d.endsWith("Z") || d.includes("+") ? d : d + "Z").toLocaleString() : "—";
+  const fmtDate = (d) => d ? new Date(d.endsWith("Z") || d.includes("+") ? d : d + "Z").toLocaleDateString(undefined, { timeZone: "UTC" }) : "—";
+  const msg = (el, text, kind = "err") => { $(el).innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; };
+
+  async function api(path, opts = {}) {
+    const headers = { ...(opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const res = await fetch(API + path, { ...opts, headers });
+    if (res.status === 401 && token) { logout(); throw new Error("Session expired, please sign in again"); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const d = data.detail;
+      const m = d?.error?.message || d?.error_description || (Array.isArray(d) ? d.map((x) => `${x.loc.slice(-1)[0]}: ${x.msg}`).join("; ") : null) || `Request failed (${res.status})`;
+      throw new Error(m);
+    }
+    return data;
+  }
+
+  // ---------- auth
+  $("#login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg("#login-msg", "");
+    try {
+      const r = await api("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ username: $("#u").value, password: $("#p").value }) });
+      if (r.role !== "admin") throw new Error("This account is not an issuer admin");
+      token = r.access_token; store.set("issuer_token", token); start();
+    } catch (err) { token = null; msg("#login-msg", err.message); }
+  });
+  function logout() { token = null; store.del("issuer_token"); clearInterval(pollTimer); $("#app").classList.add("hidden"); $("#login-view").classList.remove("hidden"); }
+  $("#logout").onclick = logout;
+
+  async function start() {
+    try {
+      const me = await api("/api/v1/auth/me");
+      if (me.role !== "admin") return logout();
+      $("#who").textContent = me.username;
+    } catch { return logout(); }
+    $("#login-view").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+    show("dashboard");
+  }
+
+  // ---------- tabs
+  $("#tabs").addEventListener("click", (e) => { const t = e.target.closest("button")?.dataset.tab; if (t) show(t); });
+  function show(tab) {
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    document.querySelectorAll("[data-view]").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== tab));
+    ({ dashboard: loadDashboard, registry: loadCreds, activity: loadAudit }[tab] || (() => {}))();
+  }
+
+  // ---------- dashboard
+  async function loadDashboard() {
+    try {
+      const s = await api("/api/v1/credentials/summary");
+      $("#stats").innerHTML = [["Issued", s.total], ["Active", s.active], ["Revoked", s.revoked], ["Expired", s.expired]]
+        .map(([l, n]) => `<div class="card stat"><div class="l">${l}</div><div class="n">${n}</div></div>`).join("");
+      const a = await api("/api/v1/audit?limit=8");
+      $("#recent").innerHTML = a.length ? a.map((r) => `<tr><td>${fmt(r.at)}</td><td>${esc(r.actor)}</td><td>${esc(r.action)}</td><td class="mono">${esc(r.target)}</td></tr>`).join("")
+        : `<tr><td colspan="4" class="empty">Nothing yet. Issue the first Campus ID.</td></tr>`;
+    } catch (err) { $("#stats").innerHTML = `<div class="msg err">${esc(err.message)}</div>`; }
+  }
+
+  // ---------- issue
+  const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+  $("#f-valid").value = d.toISOString().slice(0, 10);
+
+  const readPhoto = (file) => new Promise((res, rej) => {
+    if (!file) return res(null);
+    if (file.size > 200 * 1024) return rej(new Error("Photo must be under 200 KB"));
+    const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(file);
+  });
+
+  $("#issue-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); msg("#issue-msg", "");
+    const btn = $("#issue-btn"); btn.disabled = true;
+    try {
+      const f = e.target;
+      const body = {
+        name: f.name.value, roll_number: f.roll_number.value, branch: f.branch.value,
+        enrollment_status: f.enrollment_status.value, valid_until: f.valid_until.value,
+        photo: await readPhoto($("#f-photo").files[0]), replace_existing: $("#f-replace").checked,
+      };
+      const o = await api("/api/v1/issuer/offers", { method: "POST", body: JSON.stringify(body) });
+      showOffer(o, body.name);
+    } catch (err) { msg("#issue-msg", err.message); } finally { btn.disabled = false; }
+  });
+
+  function showOffer(o, name) {
+    $("#offer-empty").classList.add("hidden"); $("#offer").classList.remove("hidden");
+    $("#offer-title").textContent = `${name} · ${o.credential_id}`;
+    renderQR($("#qr"), o.credential_offer_uri);
+    $("#offer-link").textContent = o.credential_offer_uri;
+    $("#offer-exp").textContent = `Offer expires ${fmt(o.expires_at)} and can be claimed once.`;
+    $("#copy-offer").onclick = () => navigator.clipboard?.writeText(o.credential_offer_uri).then(() => { $("#copy-offer").textContent = "Copied"; setTimeout(() => $("#copy-offer").textContent = "Copy offer link", 1500); });
+    setClaimed(false);
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try { const s = await api(`/api/v1/issuer/offers/${o.credential_id}`); if (s.redeemed) { setClaimed(true); clearInterval(pollTimer); } else if (s.expired) { $("#claim-text").textContent = "Offer expired"; clearInterval(pollTimer); } } catch {}
+    }, 3000);
+  }
+  function renderQR(el, text) {
+    try {
+      const qr = qrcode(0, "M"); qr.addData(text); qr.make();
+      const cell = Math.max(2, Math.floor(260 / qr.getModuleCount()));
+      el.innerHTML = qr.createSvgTag({ cellSize: cell, margin: 0, scalable: false });
+    } catch { el.innerHTML = '<p class="muted">QR unavailable. Use the offer link below.</p>'; }
+  }
+  function setClaimed(done) { $("#claim-dot").classList.toggle("ok", done); $("#claim-text").textContent = done ? "Claimed by the student's wallet" : "Waiting for the wallet to claim…"; }
+  $("#new-offer").onclick = () => { clearInterval(pollTimer); $("#issue-form").reset(); $("#f-valid").value = d.toISOString().slice(0, 10); $("#offer").classList.add("hidden"); $("#offer-empty").classList.remove("hidden"); $("#f-name").focus(); };
+
+  // ---------- bulk
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+      else if (c === '"') q = true; else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    const nonEmpty = rows.filter((r) => r.some((x) => x.trim()));
+    if (!nonEmpty.length) return [];
+    const head = nonEmpty[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    return nonEmpty.slice(1).map((r) => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+  }
+  const csvCell = (v) => /[",\n]/.test(String(v ?? "")) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? "");
+  const download = (name, rows) => {
+    const blob = new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  $("#csv-template").onclick = () => download("campus-id-template.csv", [["name", "roll_number", "branch", "enrollment_status", "valid_until"], ["Asha Patil", "12412001", "CSE (AI)", "active", d.toISOString().slice(0, 10)]]);
+  $("#csv").addEventListener("change", async (e) => {
+    msg("#bulk-msg", ""); $("#bulk-rows").innerHTML = ""; $("#bulk-export").classList.add("hidden");
+    const file = e.target.files[0]; if (!file) return;
+    bulkRows = parseCSV(await file.text());
+    if (!bulkRows.length) { msg("#bulk-msg", "No rows found in this file"); $("#bulk-btn").disabled = true; return; }
+    if (bulkRows.length > 500) { msg("#bulk-msg", "Up to 500 rows per upload"); $("#bulk-btn").disabled = true; return; }
+    $("#bulk-rows").innerHTML = bulkRows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.roll_number)}</td><td class="muted">Ready</td><td></td></tr>`).join("");
+    $("#bulk-btn").disabled = false;
+  });
+  $("#bulk-btn").onclick = async () => {
+    $("#bulk-btn").disabled = true; msg("#bulk-msg", "");
+    try {
+      bulkResults = await api("/api/v1/issuer/offers/bulk", { method: "POST", body: JSON.stringify({ rows: bulkRows, replace_existing: $("#bulk-replace").checked }) });
+      const ok = bulkResults.filter((r) => r.ok).length;
+      msg("#bulk-msg", `${ok} of ${bulkResults.length} offers created`, ok === bulkResults.length ? "ok" : "err");
+      $("#bulk-rows").innerHTML = bulkResults.map((r) => `<tr><td>${r.row}</td><td>${esc(r.roll_number)}</td><td>${r.ok ? '<span class="badge b-active">Offer created</span>' : `<span class="badge b-revoked">Failed</span> <span class="muted">${esc(r.error)}</span>`}</td><td class="mono">${esc(r.credential_id || "")}</td></tr>`).join("");
+      $("#bulk-export").classList.toggle("hidden", !ok);
+    } catch (err) { msg("#bulk-msg", err.message); $("#bulk-btn").disabled = false; }
+  };
+  $("#bulk-export").onclick = () => download("campus-id-offers.csv", [["roll_number", "credential_id", "credential_offer_uri"], ...bulkResults.filter((r) => r.ok).map((r) => [r.roll_number, r.credential_id, r.credential_offer_uri])]);
+
+  // ---------- registry
+  let qTimer;
+  $("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(loadCreds, 250); });
+  $("#status-filter").addEventListener("change", loadCreds);
+  function statusOf(c) { if (c.revoked_at) return "revoked"; if (c.expires_at && new Date(c.expires_at.endsWith("Z") || c.expires_at.includes("+") ? c.expires_at : c.expires_at + "Z") < new Date()) return "expired"; return "active"; }
+  async function loadCreds() {
+    const p = new URLSearchParams(); if ($("#q").value.trim()) p.set("q", $("#q").value.trim()); if ($("#status-filter").value) p.set("status", $("#status-filter").value);
+    try {
+      const rows = await api(`/api/v1/credentials?${p}`);
+      $("#creds").innerHTML = rows.length ? rows.map((c) => {
+        const s = statusOf(c);
+        return `<tr><td class="mono">${esc(c.credential_id)}</td><td>${esc(c.roll_number)}</td><td>${fmt(c.issued_at)}</td><td>${fmtDate(c.expires_at)}</td>
+          <td><span class="badge b-${s}">${s}</span>${c.revocation_reason ? `<div class="muted" style="font-size:12px">${esc(c.revocation_reason)}</div>` : ""}</td>
+          <td>${s === "revoked" ? "" : `<button class="btn sm danger" data-revoke="${esc(c.credential_id)}">Revoke</button>`}</td></tr>`;
+      }).join("") : `<tr><td colspan="6" class="empty">No credentials match.</td></tr>`;
+    } catch (err) { $("#creds").innerHTML = `<tr><td colspan="6"><div class="msg err">${esc(err.message)}</div></td></tr>`; }
+  }
+  $("#creds").addEventListener("click", async (e) => {
+    const id = e.target.dataset.revoke; if (!id) return;
+    const reason = prompt(`Revoke ${id}?\n\nReason (shown in the registry):`, "Revoked by issuer");
+    if (reason === null) return;
+    try { await api(`/api/v1/credentials/${encodeURIComponent(id)}/revoke`, { method: "POST", body: JSON.stringify({ reason: reason || "Revoked by issuer" }) }); loadCreds(); }
+    catch (err) { alert(err.message); }
+  });
+
+  // ---------- audit
+  let auditRows = [];
+  async function loadAudit() {
+    try {
+      auditRows = await api("/api/v1/audit?limit=500");
+      $("#audit").innerHTML = auditRows.length ? auditRows.map((r) => `<tr><td>${fmt(r.at)}</td><td>${esc(r.actor)}</td><td>${esc(r.action)}</td><td class="mono">${esc(r.target)}</td><td class="muted">${esc(r.detail || "")}</td></tr>`).join("")
+        : `<tr><td colspan="5" class="empty">No activity yet.</td></tr>`;
+    } catch (err) { $("#audit").innerHTML = `<tr><td colspan="5"><div class="msg err">${esc(err.message)}</div></td></tr>`; }
+  }
+  $("#audit-export").onclick = () => download("issuer-audit.csv", [["at", "actor", "action", "target", "detail"], ...auditRows.map((r) => [r.at, r.actor, r.action, r.target, r.detail || ""])]);
+
+  if (token) start();
+})();
+</script>
+</body>
+</html>
