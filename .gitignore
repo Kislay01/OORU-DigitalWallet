@@ -1,0 +1,27 @@
+# Node
+node_modules/
+.pnpm-store/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.db
+
+# Keys generated at runtime (never commit)
+backend/keys/
+*.pem
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Campus ID credential (SD-JWT VC)",
+  "description": "Shared contract between issuer, wallet and verifier. Fields marked selectively disclosable are hidden by default and revealed only when the holder chooses.",
+  "vct": "CampusID",
+  "format": "vc+sd-jwt",
+  "type": "object",
+  "properties": {
+    "credential_id":     { "type": "string", "disclosable": false },
+    "name":              { "type": "string", "disclosable": true },
+    "roll_number":       { "type": "string", "disclosable": true },
+    "branch":            { "type": "string", "disclosable": true },
+    "enrollment_status": { "type": "string", "enum": ["active", "graduated", "suspended"], "disclosable": true },
+    "valid_until":       { "type": "string", "format": "date", "disclosable": true },
+    "photo":             { "type": "string", "contentEncoding": "base64", "disclosable": true }
+  },
+  "required": ["credential_id", "name", "roll_number", "branch", "enrollment_status", "valid_until"]
+}
