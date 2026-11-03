@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus ID Verifier</title>
+<script src="qrcode.js"></script>
+<style>
+  :root {
+    --bg: #f6f7fb; --surface: #ffffff; --border: #e3e6ee; --text: #172033; --muted: #5f6b80;
+    --primary: #1e3a8a; --primary-ink: #ffffff; --primary-soft: #e8edfb;
+    --ok: #157347; --ok-soft: #e3f4ea; --bad: #b42318; --bad-soft: #fdecea; --warn: #9a6700; --warn-soft: #fff4d6;
+    --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.06);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--primary); color: var(--primary-ink); }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 14px 16px; display: flex; align-items: center; gap: 16px; }
+  .brand { font-weight: 650; font-size: 16px; }
+  .brand small { display: block; font-weight: 400; opacity: .8; font-size: 12px; }
+  .spacer { flex: 1; }
+  nav { max-width: 1100px; margin: 0 auto; padding: 0 16px; display: flex; gap: 4px; overflow-x: auto; }
+  nav button { background: none; border: 0; color: #c9d4f2; padding: 10px 12px; border-bottom: 2px solid transparent; cursor: pointer; font: inherit; white-space: nowrap; }
+  nav button.active { color: #fff; border-bottom-color: #fff; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  h2 { font-size: 17px; margin: 0 0 4px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .grid { display: grid; gap: 16px; }
+  .two { grid-template-columns: 1fr 1.1fr; }
+  @media (max-width: 800px) { .two { grid-template-columns: 1fr; } }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 16px; }
+  .stat .n { font-size: 24px; font-weight: 650; }
+  .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  label { display: block; font-weight: 550; margin: 0 0 4px; font-size: 13px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff; color: var(--text); }
+  textarea { min-height: 110px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .field { margin-bottom: 12px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .row > * { flex: 1; min-width: 140px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text); font: inherit; font-weight: 550; cursor: pointer; }
+  .btn.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.sm { padding: 5px 10px; font-size: 13px; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip { padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; cursor: pointer; font: inherit; font-size: 13px; }
+  .chip:hover { border-color: var(--primary); }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 6px 12px; margin-bottom: 14px; }
+  .fields label { display: flex; gap: 8px; align-items: center; font-weight: 450; margin: 0; }
+  .fields input { width: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 550; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  .table-wrap { overflow-x: auto; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .b-verified, .b-valid { background: var(--ok-soft); color: var(--ok); }
+  .b-failed, .b-invalid, .b-revoked { background: var(--bad-soft); color: var(--bad); }
+  .b-pending, .b-expired { background: var(--warn-soft); color: var(--warn); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+  .msg { padding: 10px 12px; border-radius: 8px; margin: 12px 0 0; }
+  .msg.err { background: var(--bad-soft); color: var(--bad); }
+  .qr-box { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  #qr { padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+  .link-box { width: 100%; word-break: break-all; background: var(--bg); border: 1px dashed var(--border); padding: 8px; border-radius: 8px; max-height: 80px; overflow: auto; text-align: left; }
+  .banner { border-radius: var(--radius); padding: 16px 18px; display: flex; gap: 14px; align-items: center; }
+  .banner .icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 700; color: #fff; flex: 0 0 40px; }
+  .banner.valid { background: var(--ok-soft); color: var(--ok); } .banner.valid .icon { background: var(--ok); }
+  .banner.invalid, .banner.revoked { background: var(--bad-soft); color: var(--bad); } .banner.invalid .icon, .banner.revoked .icon { background: var(--bad); }
+  .banner.expired { background: var(--warn-soft); color: var(--warn); } .banner.expired .icon { background: var(--warn); }
+  .banner b { font-size: 17px; display: block; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  dt { color: var(--muted); } dd { margin: 0; font-weight: 550; }
+  .checks { list-style: none; padding: 0; margin: 0; }
+  .checks li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .checks li:last-child { border-bottom: 0; }
+  .ok-mark { color: var(--ok); font-weight: 700; } .bad-mark { color: var(--bad); font-weight: 700; }
+  .photo { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); }
+  .login { max-width: 380px; margin: 10vh auto; }
+  .hidden { display: none !important; }
+  .empty { padding: 28px; text-align: center; color: var(--muted); }
+  .pill { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  details summary { cursor: pointer; color: var(--muted); margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<section id="login-view" class="login card">
+  <h2>Campus ID Verifier</h2>
+  <p class="sub">Sign in with a verifier account.</p>
+  <form id="login-form">
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" required></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required></div>
+    <button class="btn primary" style="width:100%;justify-content:center">Sign in</button>
+    <div id="login-msg"></div>
+  </form>
+</section>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="bar">
+      <div class="brand">Campus ID Verifier<small>OORU Digital Identity Wallet</small></div>
+      <div class="spacer"></div>
+      <span id="who" style="color:#c9d4f2"></span>
+      <button class="btn sm" id="logout">Sign out</button>
+    </div>
+    <nav id="tabs">
+      <button data-tab="check" class="active">New check</button>
+      <button data-tab="history">Recent checks</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- New check -->
+    <section data-view="check">
+      <div class="grid two">
+        <div class="card">
+          <h2>Ask for a Campus ID</h2>
+          <p class="sub">Pick only the fields you need. The student sees this list and decides what to share.</p>
+          <div class="presets">
+            <button class="chip" data-preset="name,enrollment_status,valid_until">Entry gate</button>
+            <button class="chip" data-preset="name,roll_number,branch">Library / exam hall</button>
+            <button class="chip" data-preset="enrollment_status,valid_until">Student discount</button>
+            <button class="chip" data-preset="name,photo,roll_number,enrollment_status">Hostel desk</button>
+          </div>
+          <div class="fields" id="fields"></div>
+          <button class="btn primary" id="create-btn">Create request</button>
+          <div id="create-msg"></div>
+
+          <details id="paste-box">
+            <summary>Wallet can't send directly? Paste the presentation</summary>
+            <div class="field" style="margin-top:10px"><textarea id="paste" placeholder="eyJ...~...~eyJ..."></textarea></div>
+            <button class="btn" id="paste-btn" disabled>Verify pasted presentation</button>
+            <div id="paste-msg"></div>
+          </details>
+        </div>
+
+        <div class="card">
+          <div id="req-empty" class="empty">Create a request to show a QR code for the student's wallet.</div>
+
+          <div id="req" class="qr-box hidden">
+            <h2 id="req-title"></h2>
+            <div id="qr"></div>
+            <div class="pill" id="req-wait"><span class="dot"></span><span id="req-wait-text">Waiting for the student's wallet…</span></div>
+            <div class="link-box mono" id="req-link"></div>
+            <div class="row" style="width:100%">
+              <button class="btn" id="copy-req">Copy request link</button>
+              <button class="btn" id="cancel-req">New request</button>
+            </div>
+          </div>
+
+          <div id="res" class="hidden">
+            <div class="banner" id="banner"><div class="icon" id="banner-icon"></div><div><b id="banner-title"></b><span id="banner-sub"></span></div></div>
+            <h3>Shared fields</h3>
+            <div id="res-claims"></div>
+            <h3>Checks</h3>
+            <ul class="checks" id="res-checks"></ul>
+            <div style="margin-top:16px"><button class="btn primary" id="again">Check another student</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section data-view="history" class="hidden">
+      <div class="grid stats" id="stats"></div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div><input id="q" placeholder="Search request or credential ID"></div>
+          <div style="flex:0 0 160px"><select id="status-filter"><option value="">All results</option><option value="verified">Verified</option><option value="failed">Failed</option><option value="pending">Pending</option><option value="expired">Expired</option></select></div>
+          <div style="flex:0"><button class="btn" id="export">Export CSV</button></div>
+        </div>
+        <p class="muted" style="margin:0 0 8px">History shows which fields were shared, never their values.</p>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Request</th><th>Asked for</th><th>Result</th><th>Credential</th><th>Reason</th></tr></thead><tbody id="hist"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  const API = location.origin;
+  const FIELDS = { name: "Full name", roll_number: "Roll number", branch: "Branch", enrollment_status: "Enrollment status", valid_until: "Valid until", photo: "Photo" };
+  const $ = (s) => document.querySelector(s);
+  const store = {
+    get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+    del(k) { try { sessionStorage.removeItem(k); } catch {} },
+  };
+  let token = store.get("verifier_token");
+  let current = null, poll = null, histRows = [];
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const asDate = (d) => new Date(d.endsWith("Z") || d.includes("+") ? d : d + "Z");
+  const fmt = (d) => d ? asDate(d).toLocaleString() : "—";
+  const msg = (el, text) => { $(el).innerHTML = text ? `<div class="msg err">${esc(text)}</div>` : ""; };
+
+  async function api(path, opts = {}) {
+    const headers = { ...(opts.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    const res = await fetch(API + path, { ...opts, headers });
+    if (res.status === 401 && token) { logout(); throw new Error("Session expired, please sign in again"); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const d = data.detail;
+      throw new Error(d?.error?.message || (Array.isArray(d) ? d.map((x) => x.msg).join("; ") : null) || `Request failed (${res.status})`);
+    }
+    return data;
+  }
+
+  // ---------- auth
+  $("#login-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); msg("#login-msg", "");
+    try {
+      const r = await api("/api/v1/auth/login", { method: "POST", body: JSON.stringify({ username: $("#u").value, password: $("#p").value }) });
+      if (!["verifier", "admin"].includes(r.role)) throw new Error("This account cannot verify credentials");
+      token = r.access_token; store.set("verifier_token", token); start();
+    } catch (err) { token = null; msg("#login-msg", err.message); }
+  });
+  function logout() { token = null; store.del("verifier_token"); clearInterval(poll); $("#app").classList.add("hidden"); $("#login-view").classList.remove("hidden"); }
+  $("#logout").onclick = logout;
+  async function start() {
+    try { const me = await api("/api/v1/auth/me"); $("#who").textContent = me.username; } catch { return logout(); }
+    $("#login-view").classList.add("hidden"); $("#app").classList.remove("hidden"); show("check");
+  }
+
+  $("#tabs").addEventListener("click", (e) => { const t = e.target.closest("button")?.dataset.tab; if (t) show(t); });
+  function show(tab) {
+    document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    document.querySelectorAll("[data-view]").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== tab));
+    if (tab === "history") loadHistory();
+  }
+
+  // ---------- field picker
+  $("#fields").innerHTML = Object.entries(FIELDS).map(([k, l]) => `<label><input type="checkbox" value="${k}" ${["name", "enrollment_status", "valid_until"].includes(k) ? "checked" : ""}> ${l}</label>`).join("");
+  document.querySelectorAll("[data-preset]").forEach((b) => b.onclick = () => {
+    const want = b.dataset.preset.split(",");
+    document.querySelectorAll("#fields input").forEach((i) => i.checked = want.includes(i.value));
+  });
+  const chosen = () => [...document.querySelectorAll("#fields input:checked")].map((i) => i.value);
+
+  // ---------- request
+  function renderQR(el, text) {
+    try {
+      const qr = qrcode(0, "L"); qr.addData(text); qr.make();
+      const cell = Math.max(2, Math.floor(260 / qr.getModuleCount()));
+      el.innerHTML = qr.createSvgTag({ cellSize: cell, margin: 0, scalable: false });
+    } catch { el.innerHTML = '<p class="muted">QR unavailable. Use the request link below.</p>'; }
+  }
+
+  $("#create-btn").onclick = async () => {
+    msg("#create-msg", "");
+    const claims = chosen();
+    if (!claims.length) return msg("#create-msg", "Pick at least one field");
+    $("#create-btn").disabled = true;
+    try {
+      current = await api("/api/v1/verifier/requests", { method: "POST", body: JSON.stringify({ requested_claims: claims }) });
+      showRequest(claims);
+    } catch (err) { msg("#create-msg", err.message); } finally { $("#create-btn").disabled = false; }
+  };
+
+  function showRequest(claims) {
+    $("#req-empty").classList.add("hidden"); $("#res").classList.add("hidden"); $("#req").classList.remove("hidden");
+    $("#req-title").textContent = `Asking for: ${claims.map((c) => FIELDS[c]).join(", ")}`;
+    renderQR($("#qr"), current.authorization_request_uri);
+    $("#req-link").textContent = current.authorization_request_uri;
+    $("#req-wait-text").textContent = "Waiting for the student's wallet…";
+    $("#paste-btn").disabled = false;
+    $("#copy-req").onclick = () => navigator.clipboard?.writeText(current.authorization_request_uri).then(() => { $("#copy-req").textContent = "Copied"; setTimeout(() => $("#copy-req").textContent = "Copy request link", 1500); });
+    clearInterval(poll);
+    poll = setInterval(checkStatus, 2000);
+  }
+
+  async function checkStatus() {
+    if (!current) return;
+    try {
+      const r = await api(`/api/v1/verifier/requests/${current.request_id}`);
+      if (r.status === "pending") {
+        const left = Math.max(0, Math.round((asDate(r.expires_at) - new Date()) / 1000));
+        $("#req-wait-text").textContent = `Waiting for the student's wallet… (${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")})`;
+        return;
+      }
+      clearInterval(poll);
+      if (r.status === "expired") { showResult({ status: "expired-request", checks: [], claims: {} }); return; }
+      showResult(r.result);
+    } catch {}
+  }
+
+  $("#cancel-req").onclick = reset;
+  $("#again").onclick = reset;
+  function reset() { clearInterval(poll); current = null; $("#req").classList.add("hidden"); $("#res").classList.add("hidden"); $("#req-empty").classList.remove("hidden"); $("#paste").value = ""; $("#paste-btn").disabled = true; msg("#paste-msg", ""); }
+
+  $("#paste-btn").onclick = async () => {
+    msg("#paste-msg", "");
+    if (!current) return msg("#paste-msg", "Create a request first");
+    try {
+      const r = await api("/api/v1/verifier/verify", { method: "POST", body: JSON.stringify({ request_id: current.request_id, presentation: $("#paste").value.trim() }) });
+      clearInterval(poll); showResult(r);
+    } catch (err) { msg("#paste-msg", err.message); }
+  };
+
+  // ---------- result
+  const BANNERS = {
+    valid: ["✓", "Valid Campus ID", "Signed by the college, presented by its owner, not revoked."],
+    revoked: ["✕", "Revoked", "The college has revoked this Campus ID."],
+    expired: ["!", "Expired", "This Campus ID is past its validity date."],
+    invalid: ["✕", "Not valid", "One or more checks failed. Do not accept this ID."],
+    "expired-request": ["!", "Request timed out", "The student didn't respond in time. Create a new request."],
+  };
+  function showResult(r) {
+    $("#req").classList.add("hidden"); $("#res").classList.remove("hidden");
+    const s = r.status in BANNERS ? r.status : "invalid";
+    const [icon, title, sub] = BANNERS[s];
+    $("#banner").className = `banner ${s === "expired-request" ? "expired" : s}`;
+    $("#banner-icon").textContent = icon; $("#banner-title").textContent = title; $("#banner-sub").textContent = sub;
+
+    const c = r.claims || {};
+    const keys = Object.keys(c);
+    let warn = "";
+    if (s === "valid" && c.enrollment_status && c.enrollment_status !== "active") warn = `<div class="msg err">Enrollment status is "${esc(c.enrollment_status)}"</div>`;
+    $("#res-claims").innerHTML = keys.length
+      ? `<dl>${keys.map((k) => `<dt>${esc(FIELDS[k] || k)}</dt><dd>${k === "photo" ? `<img class="photo" alt="Student photo" src="data:image/jpeg;base64,${esc(c[k])}">` : esc(c[k])}</dd>`).join("")}${r.credential_id ? `<dt>Credential ID</dt><dd class="mono">${esc(r.credential_id)}</dd>` : ""}</dl>${warn}`
+      : `<p class="muted">No fields shown${s === "valid" ? "" : " because the ID was not accepted"}.</p>`;
+    $("#res-checks").innerHTML = (r.checks || []).map((ch) => `<li><span class="${ch.ok ? "ok-mark" : "bad-mark"}">${ch.ok ? "✓" : "✕"}</span><span><b>${esc(ch.name.replace(/_/g, " "))}</b> <span class="muted">${esc(ch.detail)}</span></span></li>`).join("") || `<li class="muted">No checks were run.</li>`;
+  }
+
+  // ---------- history
+  let qTimer;
+  $("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(loadHistory, 250); });
+  $("#status-filter").addEventListener("change", loadHistory);
+  async function loadHistory() {
+    try {
+      const s = await api("/api/v1/verifier/summary");
+      $("#stats").innerHTML = [["Checks", s.total], ["Verified", s.verified], ["Failed", s.failed], ["Expired", s.expired]].map(([l, n]) => `<div class="card stat"><div class="l">${l}</div><div class="n">${n}</div></div>`).join("");
+      const p = new URLSearchParams(); if ($("#q").value.trim()) p.set("q", $("#q").value.trim()); if ($("#status-filter").value) p.set("status", $("#status-filter").value);
+      histRows = await api(`/api/v1/verifier/history?${p}`);
+      $("#hist").innerHTML = histRows.length ? histRows.map((h) => {
+        const res = h.result || {};
+        const reason = (res.reasons || [])[0] || "";
+        const label = h.status === "failed" && res.status ? res.status : h.status;
+        return `<tr><td>${fmt(h.created_at)}</td><td class="mono">${esc(h.request_id)}</td><td>${h.requested_claims.map((c) => esc(FIELDS[c] || c)).join(", ")}</td>
+          <td><span class="badge b-${esc(label)}">${esc(label)}</span></td><td class="mono">${esc(res.credential_id || "")}</td><td class="muted">${esc(reason)}</td></tr>`;
+      }).join("") : `<tr><td colspan="6" class="empty">No checks yet.</td></tr>`;
+    } catch (err) { $("#hist").innerHTML = `<tr><td colspan="6"><div class="msg err">${esc(err.message)}</div></td></tr>`; }
+  }
+  const csvCell = (v) => /[",\n]/.test(String(v ?? "")) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? "");
+  $("#export").onclick = () => {
+    const rows = [["created_at", "request_id", "requested_fields", "status", "result", "credential_id", "fields_shared", "reason"],
+      ...histRows.map((h) => [h.created_at, h.request_id, h.requested_claims.join(" "), h.status, h.result?.status || "", h.result?.credential_id || "", (h.result?.fields_shared || []).join(" "), (h.result?.reasons || [])[0] || ""])];
+    const blob = new Blob([rows.map((r) => r.map(csvCell).join(",")).join("\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "verifier-checks.csv"; a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  if (token) start();
+})();
+</script>
+</body>
+</html>

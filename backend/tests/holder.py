@@ -40,3 +40,18 @@ class TestHolder:
         )
         assert r.status_code == 200, r.text
         return r.json()["credentials"][0]["credential"]
+
+    def present(self, sd_jwt: str, reveal: list[str], nonce: str, aud: str, iat: int | None = None, key=None) -> str:
+        """Build a presentation revealing only `reveal`, with a key binding JWT."""
+        from app.sdjwt import decode_disclosure, sd_hash, split
+
+        issuer_jwt, disclosures, _ = split(sd_jwt)
+        kept = [d for d in disclosures if decode_disclosure(d)[1] in reveal]
+        presented = issuer_jwt + "~" + "".join(f"{d}~" for d in kept)
+        kb = jwt.encode(
+            {"aud": aud, "nonce": nonce, "iat": iat or int(time.time()), "sd_hash": sd_hash(presented)},
+            key or self.key,
+            algorithm="ES256",
+            headers={"typ": "kb+jwt"},
+        )
+        return presented + kb
