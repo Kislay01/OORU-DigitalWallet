@@ -18,7 +18,7 @@ function takeLaunchLink(): string | null {
 
 export default function App() {
   const { phase } = useWallet();
-  const route = useRoute();
+  const { path: route, key: navKey } = useRoute();
   const [pending, setPending] = useState<string | null>(takeLaunchLink);
 
   useEffect(() => { if (phase === "ready" && pending) go("/scan"); }, [phase, pending]);
@@ -35,5 +35,5 @@ export default function App() {
   else if (route.startsWith("/settings")) page = <Settings />;
   else page = <Home />;
 
-  return <Shell route={route}>{page}</Shell>;
+  return <Shell route={route}><div key={`${route}#${navKey}`}>{page}</div></Shell>;
 }
