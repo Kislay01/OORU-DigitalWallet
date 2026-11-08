@@ -14,13 +14,13 @@ export function QrScanner({ onResult }: { onResult: (text: string) => void }) {
     let done = false;
     (async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Camera isn't available here (it needs HTTPS or localhost). Paste the link instead.");
+        setError("Camera isn't available here (it needs HTTPS or localhost). Upload a QR image or paste the link instead.");
         return;
       }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       } catch {
-        setError("Camera permission was denied. Paste the link instead.");
+        setError("Camera permission was denied. Upload a QR image or paste the link instead.");
         return;
       }
       const v = video.current!;

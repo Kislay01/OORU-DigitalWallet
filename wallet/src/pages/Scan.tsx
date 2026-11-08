@@ -1,8 +1,9 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardPaste, EyeOff, Loader2, ShieldAlert, XCircle } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardPaste, EyeOff, ImageUp, Loader2, ShieldAlert, XCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CampusIdCard } from "../components/CampusIdCard";
 import { QrScanner } from "../components/QrScanner";
 import { FIELD_LABELS, FIELD_ORDER, type StoredCredential } from "../lib/campusId";
+import { decodeQrFromImage, imageFrom } from "../lib/qrImage";
 import { isCredentialOffer, parseCredentialOffer, type CredentialOffer } from "../lib/oid4vci";
 import { isPresentationRequest, parsePresentationRequest, responseUriTrusted, type PresentationRequest } from "../lib/oid4vp";
 import { go } from "../router";
@@ -20,6 +21,9 @@ type Step =
 export function Scan({ initialLink }: { initialLink?: string | null }) {
   const [step, setStep] = useState<Step>({ kind: "input" });
   const [paste, setPaste] = useState("");
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const handle = useCallback(async (text: string) => {
     const t = text.trim();
@@ -41,7 +45,30 @@ export function Scan({ initialLink }: { initialLink?: string | null }) {
 
   useEffect(() => { if (initialLink) handle(initialLink); }, [initialLink, handle]);
 
-  const back = () => { setPaste(""); setStep({ kind: "input" }); };
+  const readImage = useCallback(async (file: Blob | null) => {
+    if (!file) return;
+    setImageError(null);
+    setStep({ kind: "working", text: "Reading the QR from your image…" });
+    try {
+      await handle(await decodeQrFromImage(file));
+    } catch (e) {
+      setImageError((e as Error).message);
+      setStep({ kind: "input" });
+    }
+  }, [handle]);
+
+  // Paste a copied QR image anywhere on this screen (Ctrl+V / long-press → Paste).
+  useEffect(() => {
+    if (step.kind !== "input") return;
+    const onPaste = (e: ClipboardEvent) => {
+      const img = imageFrom(e.clipboardData?.items, e.clipboardData?.files);
+      if (img) { e.preventDefault(); readImage(img); }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [step.kind, readImage]);
+
+  const back = () => { setPaste(""); setImageError(null); setStep({ kind: "input" }); };
 
   switch (step.kind) {
     case "input":
@@ -51,7 +78,34 @@ export function Scan({ initialLink }: { initialLink?: string | null }) {
             <h2 className="text-lg font-semibold">Scan a QR</h2>
             <p className="text-sm text-slate-500">Scan your college's QR to add your ID, or a verifier's QR to share it.</p>
           </div>
-          <QrScanner onResult={handle} />
+          <div
+            className={`relative rounded-2xl ${dragging ? "ring-4 ring-brand/40" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); readImage(imageFrom(e.dataTransfer.items, e.dataTransfer.files)); }}
+          >
+            <QrScanner onResult={handle} />
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-2 text-xs font-semibold text-slate-800 shadow-md hover:bg-white"
+            >
+              <ImageUp size={16} /> Upload QR
+            </button>
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            data-testid="qr-image-input"
+            onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ""; readImage(f); }}
+          />
+          <button type="button" className="btn w-full" onClick={() => fileInput.current?.click()}>
+            <ImageUp size={18} /> Scan QR from an image
+          </button>
+          {imageError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">{imageError}</p>}
+          <p className="text-center text-xs text-slate-400">Tip: you can also paste a copied QR image here, or drop one on the scanner.</p>
           <div className="card space-y-2">
             <label className="label" htmlFor="paste">Or paste a link</label>
             <textarea id="paste" className="input min-h-20 font-mono text-xs" placeholder="openid-credential-offer://… or openid4vp://…" value={paste} onChange={(e) => setPaste(e.target.value)} />
